@@ -1,6 +1,6 @@
 import warnings
 
-from typing import Dict, Tuple, NamedTuple, Optional, Any
+from typing import Dict, List, Tuple, NamedTuple, Optional, Any
 from collections import namedtuple
 from datetime import datetime
 from json import JSONDecodeError, JSONEncoder, dumps as json_dumps
@@ -14,8 +14,9 @@ from ..data import UserFollowers, UserInfo, Follower
 __all__ = ('CHANNEL_CHATTERS_API_URL', 'get_channel_chatters', 'get_stream_data', 'get_url', 'get_user_data', 'get_user_id',
            'STREAM_API_URL', 'USER_API_URL', 'get_user_followers', 'USER_FOLLOWERS_API_URL', 'get_headers',
            'get_user_info', 'USER_ACCOUNT_AGE_API', 'CHANNEL_INFO_API', 'get_channel_info', 'ChannelInfo',
-           'get_channel_name_from_user_id', 'OauthTokenInfo', 'get_oauth_token_info', '_check_token', 'post_url', 'USER_FOLLOWAGE_API_URL',
-           'get_user_followage', 'send_shoutout', 'send_announcement', 'send_ban', 'delete_url', 'send_unban', 'SendTwitchApiResponseStatus')
+           'get_channel_name_from_user_id', 'OauthTokenInfo', 'get_oauth_token_info', '_check_token', 'post_url', 'CHANNEL_REWARDS_API',
+           'get_channel_rewards', 'Reward', 'USER_FOLLOWAGE_API_URL', 'get_user_followage', 'send_shoutout', 'send_announcement', 'send_ban',
+           'delete_url', 'send_unban', 'SendTwitchApiResponseStatus')
 
 USER_API_URL = 'https://api.twitch.tv/helix/users?login={}'
 STREAM_API_URL = 'https://api.twitch.tv/helix/streams?user_login={}'
@@ -23,6 +24,7 @@ CHANNEL_CHATTERS_API_URL = 'https://api.twitch.tv/helix/chat/chatters?moderator_
 USER_FOLLOWERS_API_URL = 'https://api.twitch.tv/helix/users/follows?to_id={}'
 USER_ACCOUNT_AGE_API = 'https://api.twitch.tv/kraken/users/{}'
 CHANNEL_INFO_API = 'https://api.twitch.tv/helix/channels?broadcaster_id={}'
+CHANNEL_REWARDS_API = 'https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={}'
 USER_FOLLOWAGE_API_URL = 'https://api.twitch.tv/helix/channels/followers?broadcaster_id={}&user_id={}'
 SHOUTOUT_API_URL = 'https://api.twitch.tv/helix/chat/shoutouts?from_broadcaster_id={}&to_broadcaster_id={}&moderator_id={}'
 ANNOUNCEMENTS_API_URL = 'https://api.twitch.tv/helix/chat/announcements?broadcaster_id={}&moderator_id={}'
@@ -111,6 +113,31 @@ async def get_user_followers(user: str, headers: dict = None) -> UserFollowers:
                          name=user,
                          id=user_id_cache[user],
                          followers=json['data'])
+
+
+Reward = NamedTuple(
+    'Reward', (
+        ('id', str),
+        ('cost', int),
+        ('title', str),
+        ('is_user_input_required', bool))
+)
+
+async def get_channel_rewards(channel_name: str, headers: dict = None) -> List[Reward]:
+    headers = headers if headers is not None else get_headers()
+    if not _check_headers_has_auth(headers):
+        warnings.warn('[GET_USER_FOLLOWAGE] headers for the twitch api request are missing authorization', stacklevel=2)
+        return []
+
+    channel_id = await get_user_id(channel_name, headers)
+    _, json = await get_url(CHANNEL_REWARDS_API.format(channel_id), headers)
+
+    print(str(json))
+
+    rewards = []
+    for reward in json['data']:
+        rewards.append(Reward(id=reward['id'], cost=reward['cost'], title=reward['title'], is_user_input_required=reward['is_user_input_required']))
+    return rewards
 
 
 async def get_user_followage(channel_name: str, follower: str, headers: dict = None) -> Follower:
